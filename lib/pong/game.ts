@@ -6,6 +6,7 @@ import {
   resetBall,
   drawBall,
   getSpeed,
+  updateQuantumPosition,
 } from "./ball";
 import {
   Paddle,
@@ -145,6 +146,7 @@ export class PongGame {
     if (ball.collapsed && ball.timeSinceCollapse > 3) {
       ball.collapsed = false;
     }
+    updateQuantumPosition(ball);
 
     // Top/bottom wall bounce
     if (ball.y - BALL_SIZE / 2 <= 0) {
@@ -159,10 +161,10 @@ export class PongGame {
     // P1 paddle collision
     if (
       ball.dx < 0 &&
-      ball.x - BALL_SIZE / 2 <= this.p1.x + PADDLE_WIDTH &&
-      ball.x + BALL_SIZE / 2 >= this.p1.x &&
-      ball.y >= this.p1.y &&
-      ball.y <= this.p1.y + PADDLE_HEIGHT
+      ball.realX - BALL_SIZE / 2 <= this.p1.x + PADDLE_WIDTH &&
+      ball.realX + BALL_SIZE / 2 >= this.p1.x &&
+      ball.realY >= this.p1.y &&
+      ball.realY <= this.p1.y + PADDLE_HEIGHT
     ) {
       this.bounceBallOff(this.p1, 1);
     }
@@ -170,10 +172,10 @@ export class PongGame {
     // P2 paddle collision
     if (
       ball.dx > 0 &&
-      ball.x + BALL_SIZE / 2 >= this.p2.x &&
-      ball.x - BALL_SIZE / 2 <= this.p2.x + PADDLE_WIDTH &&
-      ball.y >= this.p2.y &&
-      ball.y <= this.p2.y + PADDLE_HEIGHT
+      ball.realX + BALL_SIZE / 2 >= this.p2.x &&
+      ball.realX - BALL_SIZE / 2 <= this.p2.x + PADDLE_WIDTH &&
+      ball.realY >= this.p2.y &&
+      ball.realY <= this.p2.y + PADDLE_HEIGHT
     ) {
       this.bounceBallOff(this.p2, -1);
     }
@@ -213,12 +215,18 @@ export class PongGame {
 
   private bounceBallOff(paddle: Paddle, directionX: number) {
     this.bounceCount++;
+
     this.ball.collapsed = true;
     this.ball.timeSinceCollapse = 0;
+
+    this.ball.x = this.ball.realX;
+    this.ball.y = this.ball.realY;
+
     const hitPos = (this.ball.y - paddle.y) / PADDLE_HEIGHT - 0.5;
     this.ball.ke += BALL_KE_INCREMENT;
     const speed = getSpeed(this.ball);
     const angle = hitPos * (Math.PI / 3);
+
     this.ball.dx = Math.cos(angle) * speed * directionX;
     this.ball.dy = Math.sin(angle) * speed;
 

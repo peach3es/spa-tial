@@ -64,12 +64,21 @@ export function resetBall(
 }
 
 export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball): void {
-  if (!ball.collapsed && ball.timeSinceCollapse > 3) {
+  const t = ball.timeSinceCollapse;
+  const JITTER_START = 3;
+  const JITTER_END = 36;
+
+  // Cloud: draw during transition (fading in) and after
+  if (!ball.collapsed && t > JITTER_START) {
     const sigma = getWavepacketSigma(ball);
+    // 0 → 1 over the transition window, 1 after
+    const cloudOpacity =
+      t < JITTER_END ? (t - JITTER_START) / (JITTER_END - JITTER_START) : 1;
     const rings = 6;
     for (let i = rings; i >= 1; i--) {
       const r = sigma * (i / rings) * 2.5;
-      const alpha = Math.exp(-(r * r) / (2 * sigma * sigma)) * 0.3;
+      const alpha =
+        Math.exp(-(r * r) / (2 * sigma * sigma)) * 0.3 * cloudOpacity;
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, r, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(100, 150, 255, ${alpha})`;
@@ -77,10 +86,18 @@ export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball): void {
     }
   }
 
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(ball.realX, ball.realY, BALL_SIZE / 2, 0, Math.PI * 2);
-  ctx.fill();
+  // Dot: draw during collapsed and transition (fading out), hide after
+  if (t < JITTER_END) {
+    // 1 → 0 over the transition window
+    const dotOpacity =
+      t < JITTER_START
+        ? 1
+        : 1 - (t - JITTER_START) / (JITTER_END - JITTER_START);
+    ctx.fillStyle = `rgba(255, 255, 255, ${dotOpacity})`;
+    ctx.beginPath();
+    ctx.arc(ball.realX, ball.realY, BALL_SIZE / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 export function getSpeed(ball: Ball): number {
