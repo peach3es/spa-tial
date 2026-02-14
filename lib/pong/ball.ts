@@ -1,32 +1,46 @@
 export const BALL_SIZE = 10;
-export const BALL_SPEED_INITIAL = 5;
-export const BALL_SPEED_INCREMENT = 0.5;
+export const BALL_KE_INITIAL = 5;
+export const BALL_KE_INCREMENT = 0.5;
+export const BALL_MASS = 9.109e-31;
 
 export interface Ball {
   x: number;
   y: number;
   dx: number;
   dy: number;
-  speed: number;
+  ke: number;
+  mass: number;
 }
 
 export function createBall(canvasWidth: number, canvasHeight: number): Ball {
-  return {
+  const ball: Ball = {
     x: canvasWidth / 2,
     y: canvasHeight / 2,
-    dx: BALL_SPEED_INITIAL * (Math.random() > 0.5 ? 1 : -1),
-    dy: BALL_SPEED_INITIAL * (Math.random() * 0.6 - 0.3),
-    speed: BALL_SPEED_INITIAL,
+    dx: 0,
+    dy: 0,
+    ke: BALL_KE_INITIAL,
+    mass: BALL_MASS,
   };
+  const speed = getSpeed(ball);
+  ball.dx = speed * (Math.random() > 0.5 ? 1 : -1);
+  ball.dy = speed * (Math.random() * 0.6 - 0.3);
+  return ball;
 }
 
-export function resetBall(ball: Ball, canvasWidth: number, canvasHeight: number, direction: number) {
+export function resetBall(
+  ball: Ball,
+  canvasWidth: number,
+  canvasHeight: number,
+  direction: number,
+) {
   ball.x = canvasWidth / 2;
   ball.y = canvasHeight / 2;
-  ball.speed = BALL_SPEED_INITIAL;
+  ball.ke = BALL_KE_INITIAL;
+  ball.mass = BALL_MASS;
+  const speed = getSpeed(ball);
   const angle = (Math.random() * Math.PI) / 4 - Math.PI / 8;
-  ball.dx = Math.cos(angle) * ball.speed * direction;
-  ball.dy = Math.sin(angle) * ball.speed;
+  ball.dx = Math.cos(angle) * speed * direction;
+  ball.dy = Math.sin(angle) * speed;
 }
 
 export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball) {
@@ -34,4 +48,8 @@ export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball) {
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, BALL_SIZE / 2, 0, Math.PI * 2);
   ctx.fill();
+}
+
+export function getSpeed(ball: Ball): number {
+  return Math.sqrt((2 * ball.ke) / ball.mass);
 }
