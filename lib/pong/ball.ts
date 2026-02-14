@@ -1,4 +1,11 @@
-import { HBAR, SIGMA_0, SIGMA_MAX, TIME_SCALE } from "./quantumConstant";
+import {
+  HBAR,
+  SIGMA_0,
+  SIGMA_MAX,
+  TIME_SCALE,
+  gaussianRandom,
+} from "./quantumConstant";
+
 export const BALL_SIZE = 12;
 export const BALL_KE_INITIAL = 1.64e-29; // initial kinetic energy, ~6 px/frame
 export const BALL_KE_INCREMENT = 1.68e-30; // kinetic energy increment per bounce, ~0.3 px/frame
@@ -7,6 +14,8 @@ export const BALL_MASS = 9.109e-31; //mass of an electron
 export interface Ball {
   x: number;
   y: number;
+  realX: number;
+  realY: number;
   dx: number;
   dy: number;
   ke: number;
@@ -19,6 +28,8 @@ export function createBall(canvasWidth: number, canvasHeight: number): Ball {
   const ball: Ball = {
     x: canvasWidth / 2,
     y: canvasHeight / 2,
+    realX: canvasWidth / 2,
+    realY: canvasHeight / 2,
     dx: 0,
     dy: 0,
     ke: BALL_KE_INITIAL,
@@ -37,9 +48,11 @@ export function resetBall(
   canvasWidth: number,
   canvasHeight: number,
   direction: number,
-) {
+): void {
   ball.x = canvasWidth / 2;
   ball.y = canvasHeight / 2;
+  ball.realX = ball.x;
+  ball.realY = ball.y;
   ball.ke = BALL_KE_INITIAL;
   ball.mass = BALL_MASS;
   const speed = getSpeed(ball);
@@ -50,7 +63,7 @@ export function resetBall(
   ball.collapsed = true;
 }
 
-export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball) {
+export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball): void {
   if (!ball.collapsed && ball.timeSinceCollapse > 3) {
     const sigma = getWavepacketSigma(ball);
     const rings = 6;
@@ -66,7 +79,7 @@ export function drawBall(ctx: CanvasRenderingContext2D, ball: Ball) {
 
   ctx.fillStyle = "#fff";
   ctx.beginPath();
-  ctx.arc(ball.x, ball.y, BALL_SIZE / 2, 0, Math.PI * 2);
+  ctx.arc(ball.realX, ball.realY, BALL_SIZE / 2, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -79,4 +92,15 @@ export function getWavepacketSigma(ball: Ball): number {
   const ratio = (HBAR * t) / (2 * ball.mass * SIGMA_0 * SIGMA_0);
   const sigma = SIGMA_0 * Math.sqrt(1 + ratio * ratio);
   return Math.min(sigma, SIGMA_MAX);
+}
+
+export function updateQuantumPosition(ball: Ball) {
+  if (ball.collapsed) {
+    ball.realX = ball.x;
+    ball.realY = ball.y;
+  } else {
+    const sigma = getWavepacketSigma(ball);
+    ball.realX = ball.x + gaussianRandom() * sigma;
+    ball.realY = ball.y + gaussianRandom() * sigma;
+  }
 }
