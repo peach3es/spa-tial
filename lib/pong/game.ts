@@ -312,6 +312,13 @@ export class PongGame {
       `Bounces: ${this.bounceCount}`,
       `Collapsed: ${this.ball.collapsed}`,
       `Frames: ${this.ball.timeSinceCollapse}`,
+      ``,
+      ...this.obstacles.flatMap((obs, i) => [
+        `--- Obstacle ${i + 1} ---`,
+        `  g (strength): ${obs.barrierStrength.toExponential(3)}`,
+        `  T (transmit): ${obs.potentialBarrier.toFixed(6)}`,
+        `  R (reflect):  ${(1 - obs.potentialBarrier).toFixed(6)}`,
+      ]),
     ];
 
     const padding = 12;

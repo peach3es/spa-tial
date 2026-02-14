@@ -1,8 +1,11 @@
-import { Ball, BALL_SIZE } from "./ball";
+import { Ball, BALL_SIZE, BALL_MASS } from "./ball";
+import { HBAR, G_MIN, G_MAX } from "./quantumConstant";
 
 // An obstacle is a convex polygon defined by its vertices
 export interface Obstacle {
   vertices: { x: number; y: number }[];
+  barrierStrength: number; // g — strength of the delta barrier
+  potentialBarrier: number; // computed on contact: T = transmission coefficient
 }
 
 const MIN_WIDTH = 6;
@@ -27,15 +30,17 @@ function makeThinRect(cx: number, cy: number): Obstacle {
   const sin = Math.sin(angle);
   const corners = [
     { x: -hw, y: -hh },
-    { x:  hw, y: -hh },
-    { x:  hw, y:  hh },
-    { x: -hw, y:  hh },
+    { x: hw, y: -hh },
+    { x: hw, y: hh },
+    { x: -hw, y: hh },
   ];
   return {
     vertices: corners.map(({ x, y }) => ({
       x: cx + x * cos - y * sin,
       y: cy + x * sin + y * cos,
     })),
+    barrierStrength: randomInRange(G_MIN, G_MAX),
+    potentialBarrier: 0,
   };
 }
 
@@ -114,6 +119,18 @@ function closestPointOnSegment(
   return { x: ax + t * abx, y: ay + t * aby };
 }
 
+// Compute transmission coefficient T on contact
+// k = √(2mE) / ℏ
+// T = 1 / (1 + (m²g²) / (ℏ⁴k²))
+function computeBarrier(obs: Obstacle, ball: Ball) {
+  const m = ball.mass;
+  const g = obs.barrierStrength;
+  const E = ball.ke;
+  const k = Math.sqrt(2 * m * E) / HBAR;
+  const hbar4 = HBAR ** 4;
+  obs.potentialBarrier = 1 / (1 + (m * m * g * g) / (hbar4 * k * k));
+}
+
 export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
   const radius = BALL_SIZE / 2;
   const prevX = ball.x - ball.dx;
@@ -151,6 +168,9 @@ export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
       ball.x = hitX + hitNx * radius;
       ball.y = hitY + hitNy * radius;
 
+      // Compute barrier on contact
+      computeBarrier(obs, ball);
+
       // Reflect velocity
       const dot = ball.dx * hitNx + ball.dy * hitNy;
       ball.dx -= 2 * dot * hitNx;
@@ -178,6 +198,7 @@ export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
     }
 
     if (minDist < radius) {
+      computeBarrier(obs, ball);
       ball.x += bestNx * (radius - minDist);
       ball.y += bestNy * (radius - minDist);
       const dot = ball.dx * bestNx + ball.dy * bestNy;
