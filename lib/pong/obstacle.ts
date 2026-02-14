@@ -21,29 +21,39 @@ function randomInRange(min: number, max: number) {
 function makeThinRect(cx: number, cy: number): Obstacle {
   const hw = randomInRange(MIN_WIDTH, MAX_WIDTH) / 2;
   const hh = randomInRange(MIN_HEIGHT, MAX_HEIGHT) / 2;
+  // Random rotation: -60° to +60° (120° range centered on vertical)
+  const angle = randomInRange(-Math.PI / 3, Math.PI / 3);
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const corners = [
+    { x: -hw, y: -hh },
+    { x:  hw, y: -hh },
+    { x:  hw, y:  hh },
+    { x: -hw, y:  hh },
+  ];
   return {
-    vertices: [
-      { x: cx - hw, y: cy - hh },
-      { x: cx + hw, y: cy - hh },
-      { x: cx + hw, y: cy + hh },
-      { x: cx - hw, y: cy + hh },
-    ],
+    vertices: corners.map(({ x, y }) => ({
+      x: cx + x * cos - y * sin,
+      y: cy + x * sin + y * cos,
+    })),
   };
 }
 
 export function generateObstacles(canvasWidth: number, canvasHeight: number): Obstacle[] {
   const minX = canvasWidth * MARGIN_X_RATIO;
+  const midX = canvasWidth / 2;
   const maxX = canvasWidth * (1 - MARGIN_X_RATIO);
   const minY = MARGIN_Y;
   const maxY = canvasHeight - MARGIN_Y;
 
-  const obstacles: Obstacle[] = [];
-  for (let i = 0; i < 2; i++) {
-    const cx = randomInRange(minX, maxX);
-    const cy = randomInRange(minY, maxY);
-    obstacles.push(makeThinRect(cx, cy));
-  }
-  return obstacles;
+  // One obstacle on the left half, one on the right half
+  const leftCx = randomInRange(minX, midX);
+  const rightCx = randomInRange(midX, maxX);
+
+  return [
+    makeThinRect(leftCx, randomInRange(minY, maxY)),
+    makeThinRect(rightCx, randomInRange(minY, maxY)),
+  ];
 }
 
 export function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle) {
