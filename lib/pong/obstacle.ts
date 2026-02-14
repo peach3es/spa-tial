@@ -1,5 +1,5 @@
 import { Ball, BALL_SIZE, BALL_MASS } from "./ball";
-import { HBAR } from "./quantumConstant";
+import { HBAR, G_MIN, G_MAX } from "./quantumConstant";
 
 // An obstacle is a convex polygon defined by its vertices
 export interface Obstacle {
@@ -39,7 +39,7 @@ function makeThinRect(cx: number, cy: number): Obstacle {
       x: cx + x * cos - y * sin,
       y: cy + x * sin + y * cos,
     })),
-    barrierStrength: randomInRange(1e-34, 1e-33),
+    barrierStrength: randomInRange(G_MIN, G_MAX),
     potentialBarrier: 0,
   };
 }
