@@ -1,4 +1,12 @@
-import { Ball, BALL_SIZE, BALL_SPEED_INCREMENT, createBall, resetBall, drawBall } from "./ball";
+import {
+  Ball,
+  BALL_SIZE,
+  BALL_KE_INCREMENT,
+  createBall,
+  resetBall,
+  drawBall,
+  getSpeed,
+} from "./ball";
 import {
   Paddle,
   PADDLE_WIDTH,
@@ -23,6 +31,8 @@ export class PongGame {
   private gameOver = false;
   private winner = "";
   private animationId = 0;
+  private debug = false;
+  private bounceCount = 0;
 
   constructor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     this.canvas = canvas;
@@ -31,7 +41,10 @@ export class PongGame {
     this.resize();
 
     this.p1 = createPaddle(PADDLE_OFFSET, canvas.height);
-    this.p2 = createPaddle(canvas.width - PADDLE_OFFSET - PADDLE_WIDTH, canvas.height);
+    this.p2 = createPaddle(
+      canvas.width - PADDLE_OFFSET - PADDLE_WIDTH,
+      canvas.height,
+    );
     this.ball = createBall(canvas.width, canvas.height);
 
     this.handleKeyDown = this.handleKeyDown.bind(this);
@@ -67,6 +80,12 @@ export class PongGame {
   private handleKeyDown(e: KeyboardEvent) {
     this.keys[e.key] = true;
 
+    if (e.ctrlKey && e.key === "d") {
+      e.preventDefault();
+      this.debug = !this.debug;
+      return;
+    }
+
     if (e.key === " " || e.key === "Escape") {
       if (this.gameOver) {
         this.p1.score = 0;
@@ -74,7 +93,13 @@ export class PongGame {
         this.gameOver = false;
         this.winner = "";
         this.paused = false;
-        resetBall(this.ball, this.canvas.width, this.canvas.height, Math.random() > 0.5 ? 1 : -1);
+        this.bounceCount = 0;
+        resetBall(
+          this.ball,
+          this.canvas.width,
+          this.canvas.height,
+          Math.random() > 0.5 ? 1 : -1,
+        );
       } else {
         this.paused = !this.paused;
       }
@@ -158,11 +183,14 @@ export class PongGame {
   }
 
   private bounceBallOff(paddle: Paddle, directionX: number) {
+    this.bounceCount++;
     const hitPos = (this.ball.y - paddle.y) / PADDLE_HEIGHT - 0.5;
-    this.ball.speed += BALL_SPEED_INCREMENT;
+    this.ball.ke += BALL_KE_INCREMENT;
+    const speed = getSpeed(this.ball);
     const angle = hitPos * (Math.PI / 3);
-    this.ball.dx = Math.cos(angle) * this.ball.speed * directionX;
-    this.ball.dy = Math.sin(angle) * this.ball.speed;
+    this.ball.dx = Math.cos(angle) * speed * directionX;
+    this.ball.dy = Math.sin(angle) * speed;
+
     this.ball.x =
       directionX === 1
         ? paddle.x + PADDLE_WIDTH + BALL_SIZE / 2
@@ -200,6 +228,9 @@ export class PongGame {
     drawPaddle(ctx, this.p2);
     drawBall(ctx, this.ball);
 
+    // Debug overlay
+    if (this.debug) this.drawDebug();
+
     // Paused overlay
     if (this.paused && !this.gameOver) {
       ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
@@ -223,6 +254,34 @@ export class PongGame {
       ctx.font = "20px monospace";
       ctx.fillText("Press SPACE to play again", w / 2, h / 2 + 40);
     }
+  }
+
+  private drawDebug() {
+    const ctx = this.ctx;
+    const speed = getSpeed(this.ball);
+    const lines = [
+      `Speed: ${speed.toFixed(2)} px/frame`,
+      `KE: ${this.ball.ke.toExponential(3)}`,
+      `Mass: ${this.ball.mass.toExponential(3)}`,
+      `dx: ${this.ball.dx.toFixed(2)}`,
+      `dy: ${this.ball.dy.toFixed(2)}`,
+      `Bounces: ${this.bounceCount}`,
+    ];
+
+    const padding = 12;
+    const lineHeight = 20;
+    const panelW = 260;
+    const panelH = lines.length * lineHeight + padding * 2;
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(10, 80, panelW, panelH);
+
+    ctx.fillStyle = "#0f0";
+    ctx.font = "14px monospace";
+    ctx.textAlign = "left";
+    lines.forEach((line, i) => {
+      ctx.fillText(line, 10 + padding, 80 + padding + 14 + i * lineHeight);
+    });
   }
 
   private loop() {
