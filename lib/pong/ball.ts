@@ -1,6 +1,6 @@
-export const BALL_SIZE = 10;
-export const BALL_KE_INITIAL = 2.262e-29; // initial kinetic energy which would result in about 7px/frame
-export const BALL_KE_INCREMENT = 3.3e-30; // kinetic energy increment per bounce from paddle, about 0.5px/frame
+export const BALL_SIZE = 12;
+export const BALL_KE_INITIAL = 1.64e-29; // initial kinetic energy, ~6 px/frame
+export const BALL_KE_INCREMENT = 1.68e-30; // kinetic energy increment per bounce, ~0.3 px/frame
 export const BALL_MASS = 9.109e-31;
 
 export interface Ball {
