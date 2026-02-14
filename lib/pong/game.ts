@@ -316,7 +316,7 @@ export class PongGame {
       ...this.obstacles.flatMap((obs, i) => [
         `--- Obstacle ${i + 1} ---`,
         `  g (strength): ${obs.barrierStrength.toExponential(3)}`,
-        `  T (transmit): ${obs.potentialBarrier.toExponential(6)}`,
+        `  T (transmit): ${obs.potentialBarrier.toFixed(6)}`,
         `  R (reflect):  ${(1 - obs.potentialBarrier).toFixed(6)}`,
       ]),
     ];
