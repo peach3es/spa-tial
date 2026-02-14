@@ -6,6 +6,7 @@ import {
   resetBall,
   drawBall,
   getSpeed,
+  updateQuantumPosition,
 } from "./ball";
 import {
   Paddle,
@@ -17,7 +18,12 @@ import {
   updatePaddle,
   drawPaddle,
 } from "./paddle";
-import { Obstacle, generateObstacles, drawObstacle, collideBallWithObstacles } from "./obstacle";
+import {
+  Obstacle,
+  generateObstacles,
+  drawObstacle,
+  collideBallWithObstacles,
+} from "./obstacle";
 
 const WINNING_SCORE = 10;
 
@@ -103,7 +109,10 @@ export class PongGame {
           this.canvas.height,
           Math.random() > 0.5 ? 1 : -1,
         );
-        this.obstacles = generateObstacles(this.canvas.width, this.canvas.height);
+        this.obstacles = generateObstacles(
+          this.canvas.width,
+          this.canvas.height,
+        );
       } else {
         this.paused = !this.paused;
       }
@@ -132,6 +141,13 @@ export class PongGame {
     ball.x += ball.dx;
     ball.y += ball.dy;
 
+    // Check for collapse
+    ball.timeSinceCollapse++;
+    if (ball.collapsed && ball.timeSinceCollapse > 3) {
+      ball.collapsed = false;
+    }
+    updateQuantumPosition(ball);
+
     // Top/bottom wall bounce
     if (ball.y - BALL_SIZE / 2 <= 0) {
       ball.y = BALL_SIZE / 2;
@@ -145,10 +161,10 @@ export class PongGame {
     // P1 paddle collision
     if (
       ball.dx < 0 &&
-      ball.x - BALL_SIZE / 2 <= this.p1.x + PADDLE_WIDTH &&
-      ball.x + BALL_SIZE / 2 >= this.p1.x &&
-      ball.y >= this.p1.y &&
-      ball.y <= this.p1.y + PADDLE_HEIGHT
+      ball.realX - BALL_SIZE / 2 <= this.p1.x + PADDLE_WIDTH &&
+      ball.realX + BALL_SIZE / 2 >= this.p1.x &&
+      ball.realY >= this.p1.y &&
+      ball.realY <= this.p1.y + PADDLE_HEIGHT
     ) {
       this.bounceBallOff(this.p1, 1);
     }
@@ -156,10 +172,10 @@ export class PongGame {
     // P2 paddle collision
     if (
       ball.dx > 0 &&
-      ball.x + BALL_SIZE / 2 >= this.p2.x &&
-      ball.x - BALL_SIZE / 2 <= this.p2.x + PADDLE_WIDTH &&
-      ball.y >= this.p2.y &&
-      ball.y <= this.p2.y + PADDLE_HEIGHT
+      ball.realX + BALL_SIZE / 2 >= this.p2.x &&
+      ball.realX - BALL_SIZE / 2 <= this.p2.x + PADDLE_WIDTH &&
+      ball.realY >= this.p2.y &&
+      ball.realY <= this.p2.y + PADDLE_HEIGHT
     ) {
       this.bounceBallOff(this.p2, -1);
     }
@@ -175,7 +191,10 @@ export class PongGame {
         this.winner = "Player 2";
       } else {
         resetBall(ball, this.canvas.width, this.canvas.height, 1);
-        this.obstacles = generateObstacles(this.canvas.width, this.canvas.height);
+        this.obstacles = generateObstacles(
+          this.canvas.width,
+          this.canvas.height,
+        );
       }
     }
 
@@ -186,17 +205,28 @@ export class PongGame {
         this.winner = "Player 1";
       } else {
         resetBall(ball, this.canvas.width, this.canvas.height, -1);
-        this.obstacles = generateObstacles(this.canvas.width, this.canvas.height);
+        this.obstacles = generateObstacles(
+          this.canvas.width,
+          this.canvas.height,
+        );
       }
     }
   }
 
   private bounceBallOff(paddle: Paddle, directionX: number) {
     this.bounceCount++;
+
+    this.ball.collapsed = true;
+    this.ball.timeSinceCollapse = 0;
+
+    this.ball.x = this.ball.realX;
+    this.ball.y = this.ball.realY;
+
     const hitPos = (this.ball.y - paddle.y) / PADDLE_HEIGHT - 0.5;
     this.ball.ke += BALL_KE_INCREMENT;
     const speed = getSpeed(this.ball);
     const angle = hitPos * (Math.PI / 3);
+
     this.ball.dx = Math.cos(angle) * speed * directionX;
     this.ball.dy = Math.sin(angle) * speed;
 
@@ -280,6 +310,8 @@ export class PongGame {
       `dx: ${this.ball.dx.toFixed(2)}`,
       `dy: ${this.ball.dy.toFixed(2)}`,
       `Bounces: ${this.bounceCount}`,
+      `Collapsed: ${this.ball.collapsed}`,
+      `Frames: ${this.ball.timeSinceCollapse}`,
     ];
 
     const padding = 12;
