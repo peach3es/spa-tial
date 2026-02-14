@@ -17,6 +17,7 @@ import {
   updatePaddle,
   drawPaddle,
 } from "./paddle";
+import { Obstacle, generateObstacles, drawObstacle, collideBallWithObstacles } from "./obstacle";
 
 const WINNING_SCORE = 10;
 
@@ -33,6 +34,7 @@ export class PongGame {
   private animationId = 0;
   private debug = false;
   private bounceCount = 0;
+  private obstacles: Obstacle[] = [];
 
   constructor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     this.canvas = canvas;
@@ -46,6 +48,7 @@ export class PongGame {
       canvas.height,
     );
     this.ball = createBall(canvas.width, canvas.height);
+    this.obstacles = generateObstacles(canvas.width, canvas.height);
 
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.handleKeyUp = this.handleKeyUp.bind(this);
@@ -100,6 +103,7 @@ export class PongGame {
           this.canvas.height,
           Math.random() > 0.5 ? 1 : -1,
         );
+        this.obstacles = generateObstacles(this.canvas.width, this.canvas.height);
       } else {
         this.paused = !this.paused;
       }
@@ -160,6 +164,9 @@ export class PongGame {
       this.bounceBallOff(this.p2, -1);
     }
 
+    // Obstacle collision
+    collideBallWithObstacles(ball, this.obstacles);
+
     // Scoring
     if (ball.x < 0) {
       this.p2.score++;
@@ -168,6 +175,7 @@ export class PongGame {
         this.winner = "Player 2";
       } else {
         resetBall(ball, this.canvas.width, this.canvas.height, 1);
+        this.obstacles = generateObstacles(this.canvas.width, this.canvas.height);
       }
     }
 
@@ -178,6 +186,7 @@ export class PongGame {
         this.winner = "Player 1";
       } else {
         resetBall(ball, this.canvas.width, this.canvas.height, -1);
+        this.obstacles = generateObstacles(this.canvas.width, this.canvas.height);
       }
     }
   }
@@ -222,6 +231,11 @@ export class PongGame {
     ctx.textAlign = "center";
     ctx.fillText(String(this.p1.score), w / 2 - 60, 60);
     ctx.fillText(String(this.p2.score), w / 2 + 60, 60);
+
+    // Obstacles
+    for (const obs of this.obstacles) {
+      drawObstacle(ctx, obs);
+    }
 
     // Paddles & ball
     drawPaddle(ctx, this.p1);
