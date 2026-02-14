@@ -41,7 +41,7 @@ function makeThinRect(cx: number, cy: number): Obstacle {
       x: cx + x * cos - y * sin,
       y: cy + x * sin + y * cos,
     })),
-    barrierStrength: randomInRange(1, 10),
+    barrierStrength: randomInRange(1e-34, 1e-33),
     potentialBarrier: 0,
   };
 }
