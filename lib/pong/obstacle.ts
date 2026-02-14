@@ -1,7 +1,5 @@
 import { Ball, BALL_SIZE, BALL_MASS } from "./ball";
-
-// Reduced Planck constant ℏ = h / 2π
-const HBAR = 6.626e-34 / (2 * Math.PI); // ~1.0546e-34 J·s
+import { HBAR } from "./quantumConstant";
 
 // An obstacle is a convex polygon defined by its vertices
 export interface Obstacle {
