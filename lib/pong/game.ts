@@ -280,6 +280,13 @@ export class PongGame {
       `dx: ${this.ball.dx.toFixed(2)}`,
       `dy: ${this.ball.dy.toFixed(2)}`,
       `Bounces: ${this.bounceCount}`,
+      ``,
+      ...this.obstacles.flatMap((obs, i) => [
+        `--- Obstacle ${i + 1} ---`,
+        `  g (strength): ${obs.barrierStrength.toFixed(3)}`,
+        `  T (transmit): ${obs.potentialBarrier.toExponential(3)}`,
+        `  R (reflect):  ${(1 - obs.potentialBarrier).toFixed(6)}`,
+      ]),
     ];
 
     const padding = 12;
