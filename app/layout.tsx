@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Quantum Pong",
-  description: "A pong game with quantum tunneling mechanics",
+  description: "A pong game with quantum tunneling and superposition mechanics",
 };
 
 export default function RootLayout({
