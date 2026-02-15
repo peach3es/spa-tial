@@ -8,7 +8,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  ReferenceArea,
   Customized,
 } from "recharts";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
@@ -62,32 +61,6 @@ function ChartOverlay(props: any) {
 
   return (
     <g>
-      {/* Incident zone label */}
-      <text
-        x={chartLeft + (chartMidX - chartLeft) / 2}
-        y={chartTop + 18}
-        fill="rgba(150, 170, 255, 0.45)"
-        fontSize={12}
-        fontFamily={MONO_FONT}
-        textAnchor="middle"
-        letterSpacing="0.08em"
-      >
-        INCIDENT ZONE
-      </text>
-
-      {/* Transmitted zone label */}
-      <text
-        x={chartMidX + (chartRight - chartMidX) / 2}
-        y={chartTop + 18}
-        fill="rgba(100, 220, 190, 0.45)"
-        fontSize={12}
-        fontFamily={MONO_FONT}
-        textAnchor="middle"
-        letterSpacing="0.08em"
-      >
-        TRANSMITTED ZONE
-      </text>
-
       {/* g·δ(x) annotation near barrier peak */}
       <text
         x={chartMidX + 16}
@@ -154,7 +127,10 @@ export function ObstacleWaveChart({
     const maxDist = canvasWidth * 0.4;
 
     const normalizedDist = Math.min(dist2D / maxDist, 1);
-    const ballChartX = -5 - normalizedDist * 85;
+
+    // Direction based on current ball position (for incoming wave)
+    const currentDirection: 1 | -1 =
+      obstacle.ballX < obstacle.obstacleX ? 1 : -1;
 
     const cloudProximity = 1 - Math.max(0, cloudEdgeDist) / proximityThreshold;
     const incomingAmplitude =
@@ -162,7 +138,9 @@ export function ObstacleWaveChart({
 
     let transmittedAmplitude = 0;
     let reflectedAmplitude = 0;
-    if (obstacle.framesSinceCollision < COLLISION_FADE_FRAMES) {
+    const hasPostCollision =
+      obstacle.framesSinceCollision < COLLISION_FADE_FRAMES;
+    if (hasPostCollision) {
       const fade = 1 - obstacle.framesSinceCollision / COLLISION_FADE_FRAMES;
       if (obstacle.collisionT > 0.5) {
         transmittedAmplitude = Math.sqrt(obstacle.collisionT) * fade;
@@ -170,6 +148,16 @@ export function ObstacleWaveChart({
         reflectedAmplitude = Math.sqrt(1 - obstacle.collisionT) * fade;
       }
     }
+
+    // Use collision direction for post-collision waves, current position otherwise
+    const direction: 1 | -1 = hasPostCollision
+      ? obstacle.collisionDirection
+      : currentDirection;
+
+    const ballChartX =
+      direction === 1
+        ? -5 - normalizedDist * 85 // negative range: far left → near barrier
+        : 5 + normalizedDist * 85; // positive range: far right → near barrier
 
     const displayK = Math.max(
       0.08,
@@ -184,6 +172,7 @@ export function ObstacleWaveChart({
       incomingAmplitude,
       transmittedAmplitude,
       reflectedAmplitude,
+      direction,
     );
   }, [
     obstacle.ballX,
@@ -195,18 +184,19 @@ export function ObstacleWaveChart({
     obstacle.waveNumber,
     obstacle.barrierStrength,
     obstacle.collisionT,
+    obstacle.collisionDirection,
     obstacle.framesSinceCollision,
     canvasWidth,
     animFrame,
   ]);
 
   return (
-    <div className="flex-1 flex flex-col relative rounded-md overflow-hidden border border-white/[0.08] bg-[#060a12]">
+    <div className="flex-1 flex flex-col relative rounded-md overflow-hidden border border-white/8 bg-[#060a12]">
       {/* Top-edge glow */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400/20 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-blue-400/20 to-transparent" />
 
       {/* Header — centered title */}
-      <div className="flex items-center justify-center py-1.5 border-b border-white/[0.06]">
+      <div className="flex items-center justify-center py-1.5 border-b border-white/6">
         <span
           className="text-[14px] tracking-[0.12em] uppercase text-white/70 font-medium"
           style={{ fontFamily: MONO_FONT }}
@@ -219,7 +209,7 @@ export function ObstacleWaveChart({
       <div className="relative flex-1 min-h-0">
         <ChartContainer
           config={chartConfig}
-          className="!aspect-auto h-full w-full"
+          className="aspect-auto! h-full w-full"
         >
           <ComposedChart
             data={data}
@@ -243,26 +233,7 @@ export function ObstacleWaveChart({
               vertical={false}
             />
 
-            {/* Incident zone — cool blue-violet tint */}
-            <ReferenceArea
-              x1={-100}
-              x2={-1}
-              y1={-2.5}
-              y2={2.5}
-              fill="rgba(100, 120, 220, 0.06)"
-              strokeOpacity={0}
-            />
-            {/* Transmitted zone — warm teal-green tint */}
-            <ReferenceArea
-              x1={1}
-              x2={100}
-              y1={-2.5}
-              y2={2.5}
-              fill="rgba(80, 200, 170, 0.06)"
-              strokeOpacity={0}
-            />
-
-            {/* Zone labels + axis labels + g·δ(x) annotation */}
+            {/* Axis labels + g·δ(x) annotation */}
             <Customized component={ChartOverlay} />
 
             <XAxis
@@ -321,7 +292,7 @@ export function ObstacleWaveChart({
 
         {/* T/R readout — bottom-right inside chart */}
         <div
-          className="absolute bottom-[8px] right-[14px] flex flex-col items-end gap-0.5 pointer-events-none"
+          className="absolute bottom-2 right-3.5 flex flex-col items-end gap-0.5 pointer-events-none"
           style={{ fontFamily: MONO_FONT }}
         >
           <span className="text-[11px] tabular-nums text-emerald-400/70">

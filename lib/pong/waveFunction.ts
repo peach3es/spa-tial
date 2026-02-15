@@ -17,6 +17,7 @@ export function generateWaveData(
   incomingAmplitude: number,
   transmittedAmplitude: number,
   reflectedAmplitude: number,
+  direction: 1 | -1 = 1,
   numPoints: number = 150,
 ): WaveDataPoint[] {
   const xRange = 100;
@@ -26,14 +27,28 @@ export function generateWaveData(
   const normalizedG = (barrierStrength - G_MIN) / (G_MAX - G_MIN);
   const spikeHeight = 0.5 + normalizedG * 2.0;
 
-  // Incoming packet starts at far left (-90) and moves toward barrier (0)
-  // Map ballChartX so the packet travels from -90 toward -5
-  const incomingCenter = Math.max(-90, Math.min(-5, ballChartX));
+  // Incoming packet center and transmitted center depend on direction
+  let incomingCenter: number;
+  let transmittedCenter: number;
+  if (direction === 1) {
+    // From left: incoming on negative side, transmitted on positive
+    incomingCenter = Math.max(-90, Math.min(-5, ballChartX));
+    transmittedCenter = Math.max(5, Math.min(90, -ballChartX));
+  } else {
+    // From right: incoming on positive side, transmitted on negative
+    incomingCenter = Math.min(90, Math.max(5, ballChartX));
+    transmittedCenter = Math.min(-5, Math.max(-90, -ballChartX));
+  }
   const reflectedCenter = incomingCenter;
-  // Transmitted packet moves away from barrier toward the right
-  const transmittedCenter = Math.max(5, Math.min(90, -ballChartX));
 
   const sigma2 = 2 * PACKET_SIGMA * PACKET_SIGMA;
+
+  // Phase signs for wave direction:
+  // direction = 1:  incoming cos(kx - ωt) right, reflected cos(kx + ωt) left
+  // direction = -1: incoming cos(kx + ωt) left,  reflected cos(kx - ωt) right
+  const incomingPhaseSign = -direction; // -1 for right-travel, +1 for left-travel
+  const reflectedPhaseSign = direction; // opposite of incoming
+  const transmittedPhaseSign = incomingPhaseSign; // same direction as incoming
 
   for (let i = 0; i <= numPoints; i++) {
     const x = -xRange + (2 * xRange * i) / numPoints;
@@ -44,32 +59,37 @@ export function generateWaveData(
 
     let psiReal = 0;
 
-    if (x < 0) {
-      // Incoming wave packet: Gaussian envelope centered at incomingCenter
+    // Incident side: x < 0 when direction=1, x > 0 when direction=-1
+    const isIncidentSide = direction === 1 ? x < 0 : x > 0;
+
+    if (isIncidentSide) {
+      // Incoming wave packet
       const incomingEnv = Math.exp(
         -((x - incomingCenter) * (x - incomingCenter)) / sigma2,
       );
       const incoming =
-        incomingEnv * Math.cos(displayK * x - animPhase) * incomingAmplitude;
+        incomingEnv *
+        Math.cos(displayK * x + incomingPhaseSign * animPhase) *
+        incomingAmplitude;
 
-      // Reflected wave packet: same center, traveling opposite direction
+      // Reflected wave packet: same center, opposite travel direction
       const reflectedEnv = Math.exp(
         -((x - reflectedCenter) * (x - reflectedCenter)) / sigma2,
       );
       const reflected =
         reflectedEnv *
-        Math.cos(displayK * x + animPhase) *
+        Math.cos(displayK * x + reflectedPhaseSign * animPhase) *
         reflectedAmplitude;
 
       psiReal = incoming + reflected;
     } else {
-      // Transmitted wave packet: Gaussian envelope moving past barrier
+      // Transmitted wave packet: passes through barrier
       const transmittedEnv = Math.exp(
         -((x - transmittedCenter) * (x - transmittedCenter)) / sigma2,
       );
       psiReal =
         transmittedEnv *
-        Math.cos(displayK * x - animPhase) *
+        Math.cos(displayK * x + transmittedPhaseSign * animPhase) *
         transmittedAmplitude;
     }
 

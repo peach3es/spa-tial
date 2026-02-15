@@ -64,10 +64,12 @@ export class PongGame {
   private frameCount = 0;
   private obstacleHitT: number[] = [0, 0];
   private obstacleHitFrame: number[] = [-Infinity, -Infinity];
+  private obstacleHitDirection: (1 | -1)[] = [1, 1];
 
   private resetObstacleCollisions() {
     this.obstacleHitT = [0, 0];
     this.obstacleHitFrame = [-Infinity, -Infinity];
+    this.obstacleHitDirection = [1, 1];
   }
 
   constructor(
@@ -247,6 +249,8 @@ export class PongGame {
         if (transmitted || d < 200) {
           this.obstacleHitT[i] = obs.transmission;
           this.obstacleHitFrame[i] = this.frameCount;
+          // Record approach direction: prevDx > 0 means ball was moving right (from left)
+          this.obstacleHitDirection[i] = prevDx > 0 ? 1 : -1;
         }
       }
     }
@@ -439,6 +443,7 @@ export class PongGame {
         waveNumber: k,
         ballSigma: sigma,
         collisionT: this.obstacleHitT[i],
+        collisionDirection: this.obstacleHitDirection[i],
         framesSinceCollision: this.frameCount - this.obstacleHitFrame[i],
       };
     });
