@@ -3,6 +3,7 @@
 import { useRef, useEffect, useMemo, useState } from "react";
 import { PongGame } from "@/lib/pong/game";
 import { createGameStateStore } from "@/lib/pong/gameState";
+import { GameAudio } from "@/lib/pong/audio";
 import { PotentialEnergyPanel } from "@/components/quantum/PotentialEnergyPanel";
 
 export default function Home() {
@@ -19,7 +20,8 @@ export default function Home() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const game = new PongGame(canvas, ctx, store);
+    const audio = new GameAudio();
+    const game = new PongGame(canvas, ctx, store, audio);
     gameRef.current = game;
     game.start();
 
