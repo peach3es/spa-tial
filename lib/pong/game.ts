@@ -23,6 +23,7 @@ import {
   generateObstacles,
   drawObstacle,
   collideBallWithObstacles,
+  resetClearedObstacles,
 } from "./obstacle";
 import { HBAR } from "./quantumConstant";
 import { type GameStateStore, type ObstacleChartState } from "./gameState";
@@ -204,6 +205,7 @@ export class PongGame {
     const prevDx = ball.dx;
     const prevDy = ball.dy;
     collideBallWithObstacles(ball, this.obstacles);
+    resetClearedObstacles(ball, this.obstacles);
     if (ball.dx !== prevDx || ball.dy !== prevDy) {
       // Find which obstacle the ball is closest to
       let closestIdx = 0;

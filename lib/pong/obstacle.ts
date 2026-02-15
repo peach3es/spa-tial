@@ -166,6 +166,25 @@ function computeBarrier(obs: Obstacle, ball: Ball) {
   obs.transmission = 1 / (1 + (m * m * g * g) / (hbar4 * k * k));
 }
 
+// Reset obstacle state once the ball is far enough away
+const CLEAR_DISTANCE = 100; // px from centroid before resetting
+
+export function resetClearedObstacles(ball: Ball, obstacles: Obstacle[]) {
+  for (const obs of obstacles) {
+    if (!obs.transmitted) continue;
+    const verts = obs.vertices;
+    const n = verts.length;
+    let cx = 0, cy = 0;
+    for (const v of verts) { cx += v.x; cy += v.y; }
+    cx /= n; cy /= n;
+    const dist = Math.hypot(ball.x - cx, ball.y - cy);
+    if (dist > CLEAR_DISTANCE) {
+      obs.transmitted = false;
+      obs.transmission = 0;
+    }
+  }
+}
+
 export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
   const radius = BALL_SIZE / 2;
   const prevX = ball.x - ball.dx;
