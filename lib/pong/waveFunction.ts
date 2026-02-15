@@ -6,7 +6,7 @@ export interface WaveDataPoint {
   potential: number;
 }
 
-const PACKET_SIGMA = 18;
+const PACKET_SIGMA = 30; // width of Gaussian wave packet
 const SPIKE_WIDTH = 1.5;
 
 export function generateWaveData(
@@ -26,11 +26,14 @@ export function generateWaveData(
   const normalizedG = (barrierStrength - G_MIN) / (G_MAX - G_MIN);
   const spikeHeight = 0.5 + normalizedG * 2.0;
 
-  // Incoming packet centered at ball's chart position (clamped to left side)
-  const incomingCenter = Math.min(ballChartX, -5);
+  // Incoming packet starts at far left (-90) and moves toward barrier (0)
+  // Map ballChartX so the packet travels from -90 toward -5
+  const incomingCenter = Math.max(-90, Math.min(-5, ballChartX));
   const reflectedCenter = incomingCenter;
-  // Transmitted packet centered at mirrored position past barrier
-  const transmittedCenter = Math.max(-ballChartX, 5);
+  // Transmitted packet moves away from barrier toward the right
+  const transmittedCenter = Math.max(5, Math.min(90, -ballChartX));
+
+  const sigma2 = 2 * PACKET_SIGMA * PACKET_SIGMA;
 
   for (let i = 0; i <= numPoints; i++) {
     const x = -xRange + (2 * xRange * i) / numPoints;
@@ -42,16 +45,16 @@ export function generateWaveData(
     let psiReal = 0;
 
     if (x < 0) {
+      // Incoming wave packet: Gaussian envelope centered at incomingCenter
       const incomingEnv = Math.exp(
-        -((x - incomingCenter) * (x - incomingCenter)) /
-          (2 * PACKET_SIGMA * PACKET_SIGMA),
+        -((x - incomingCenter) * (x - incomingCenter)) / sigma2,
       );
       const incoming =
         incomingEnv * Math.cos(displayK * x - animPhase) * incomingAmplitude;
 
+      // Reflected wave packet: same center, traveling opposite direction
       const reflectedEnv = Math.exp(
-        -((x - reflectedCenter) * (x - reflectedCenter)) /
-          (2 * PACKET_SIGMA * PACKET_SIGMA),
+        -((x - reflectedCenter) * (x - reflectedCenter)) / sigma2,
       );
       const reflected =
         reflectedEnv *
@@ -60,9 +63,9 @@ export function generateWaveData(
 
       psiReal = incoming + reflected;
     } else {
+      // Transmitted wave packet: Gaussian envelope moving past barrier
       const transmittedEnv = Math.exp(
-        -((x - transmittedCenter) * (x - transmittedCenter)) /
-          (2 * PACKET_SIGMA * PACKET_SIGMA),
+        -((x - transmittedCenter) * (x - transmittedCenter)) / sigma2,
       );
       psiReal =
         transmittedEnv *
