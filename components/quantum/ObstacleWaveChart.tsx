@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { ComposedChart, Line, XAxis, YAxis, ReferenceLine } from "recharts";
+import { ComposedChart, Line, XAxis, YAxis } from "recharts";
 import {
   ChartContainer,
   type ChartConfig,
@@ -37,11 +37,6 @@ export function ObstacleWaveChart({
   animFrame,
   label,
 }: Props) {
-  // Ball position relative to barrier, mapped to chart x-range (-100 to 100)
-  const ballRelativeX =
-    ((obstacle.ballX - obstacle.obstacleX) / (canvasWidth / 2)) * 100;
-  const clampedBallX = Math.max(-100, Math.min(100, ballRelativeX));
-
   const data = useMemo(() => {
     const omega = 0.08;
     const animPhase = animFrame * omega;
@@ -54,9 +49,18 @@ export function ObstacleWaveChart({
     const isApproaching =
       (obstacle.ballX < obstacle.obstacleX && obstacle.ballDirectionX > 0) ||
       (obstacle.ballX > obstacle.obstacleX && obstacle.ballDirectionX < 0);
-    const maxDist = canvasWidth * 0.2;
+    const maxDist = canvasWidth * 0.4;
+
+    // Map distance to chart position: always approach from left (-90) toward barrier (0)
+    // Far away = -90, close = -5
+    const normalizedDist = Math.min(dist2D / maxDist, 1);
+    const ballChartX = -5 - normalizedDist * 85; // -90 when far, -5 when at barrier
+
+    // Amplitude ramps up quickly at the edge of detection range,
+    // so the packet is visible while still on the far left
+    const rawAmp = 1 - dist2D / maxDist; // 0 at edge, 1 at barrier
     const incomingAmplitude = isApproaching
-      ? Math.max(0, 1 - dist2D / maxDist)
+      ? Math.max(0, Math.min(1, rawAmp * 3)) // reach full amplitude at ~33% of the way in
       : 0;
 
     // After collision: show transmitted or reflected wave, fading out
@@ -78,7 +82,7 @@ export function ObstacleWaveChart({
     return generateWaveData(
       displayK,
       animPhase,
-      clampedBallX,
+      ballChartX,
       obstacle.barrierStrength,
       incomingAmplitude,
       transmittedAmplitude,
@@ -96,7 +100,6 @@ export function ObstacleWaveChart({
     obstacle.framesSinceCollision,
     canvasWidth,
     animFrame,
-    clampedBallX,
   ]);
 
   return (
@@ -142,13 +145,6 @@ export function ObstacleWaveChart({
                 offset: -20,
                 style: { fill: "rgba(255,255,255,0.6)", fontSize: 12 },
               }}
-            />
-
-            {/* Ball position indicator */}
-            <ReferenceLine
-              x={clampedBallX}
-              stroke="rgba(255, 255, 255, 0.6)"
-              strokeDasharray="4 4"
             />
 
             {/* Delta function barrier V(x) */}
