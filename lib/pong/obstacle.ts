@@ -6,6 +6,7 @@ export interface Obstacle {
   vertices: { x: number; y: number }[];
   barrierStrength: number; // g - strength of the delta barrier
   transmission: number; // computed on contact: T = transmission coefficient
+  transmitted: boolean; // true if the ball tunneled through this obstacle
 }
 
 const MIN_WIDTH = 6;
@@ -41,6 +42,7 @@ function makeThinRect(cx: number, cy: number): Obstacle {
     })),
     barrierStrength: randomInRange(G_MIN, G_MAX),
     transmission: 0,
+    transmitted: false,
   };
 }
 
@@ -66,8 +68,12 @@ export function generateObstacles(
 
 export function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle) {
   const verts = obs.vertices;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+  ctx.fillStyle = obs.transmitted
+    ? "rgba(0, 200, 255, 0.25)"
+    : "rgba(255, 255, 255, 0.25)";
+  ctx.strokeStyle = obs.transmitted
+    ? "rgba(0, 200, 255, 0.6)"
+    : "rgba(255, 255, 255, 0.6)";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(verts[0].x, verts[0].y);
@@ -206,16 +212,24 @@ export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
     }
 
     if (bestT <= 1) {
-      // Place ball at the crossing point, offset by radius along the outward normal
+      // Compute barrier on contact
+      computeBarrier(obs, ball);
+      const T = obs.transmission;
+      const R = 1 - T;
+
+      if (T > R) {
+        // Quantum tunneling: ball transmits through the obstacle
+        obs.transmitted = true;
+        continue; // don't reflect, let the ball pass through
+      }
+
+      // Reflect: place ball at crossing point, offset by radius along outward normal
+      obs.transmitted = false;
       const hitX = prevX + (ball.x - prevX) * bestT;
       const hitY = prevY + (ball.y - prevY) * bestT;
       ball.x = hitX + hitNx * radius;
       ball.y = hitY + hitNy * radius;
 
-      // Compute barrier on contact
-      computeBarrier(obs, ball);
-
-      // Reflect velocity
       const dot = ball.dx * hitNx + ball.dy * hitNy;
       ball.dx -= 2 * dot * hitNx;
       ball.dy -= 2 * dot * hitNy;
@@ -244,6 +258,15 @@ export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
 
     if (minDist < radius) {
       computeBarrier(obs, ball);
+      const T = obs.transmission;
+      const R = 1 - T;
+
+      if (T > R) {
+        obs.transmitted = true;
+        continue;
+      }
+
+      obs.transmitted = false;
       ball.x += bestNx * (radius - minDist);
       ball.y += bestNy * (radius - minDist);
       const dot = ball.dx * bestNx + ball.dy * bestNy;
