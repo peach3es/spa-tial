@@ -38,15 +38,11 @@ export class PongGame {
   private _showCharts = false;
 
   set showCharts(value: boolean) {
-    if (this._showCharts === value) return;
     this._showCharts = value;
-    this.onGameHeightChanged();
   }
 
   private get gameHeight() {
-    return this._showCharts
-      ? this.canvas.height * CHART_HEIGHT_RATIO
-      : this.canvas.height;
+    return this.canvas.height;
   }
   private p1: Paddle;
   private p2: Paddle;
@@ -119,23 +115,6 @@ export class PongGame {
   private handleResize() {
     this.resize();
     this.p2.x = this.canvas.width - PADDLE_OFFSET - PADDLE_WIDTH;
-  }
-
-  private onGameHeightChanged() {
-    const gh = this.gameHeight;
-    // Clamp paddles into the new game area
-    this.p1.y = Math.min(this.p1.y, gh - PADDLE_HEIGHT);
-    this.p2.y = Math.min(this.p2.y, gh - PADDLE_HEIGHT);
-    // Clamp ball
-    if (this.ball.y > gh - BALL_SIZE / 2) {
-      this.ball.y = gh - BALL_SIZE / 2;
-    }
-    // Clamp obstacle vertices that fall outside the new area
-    for (const obs of this.obstacles) {
-      for (const v of obs.vertices) {
-        if (v.y > gh - 10) v.y = gh - 10;
-      }
-    }
   }
 
   private handleKeyDown(e: KeyboardEvent) {
@@ -313,6 +292,13 @@ export class PongGame {
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, w, h);
 
+    // Uniform scaling when charts are shown to maintain aspect ratio
+    const scale = this._showCharts ? CHART_HEIGHT_RATIO : 1;
+    const offsetX = (w * (1 - scale)) / 2;
+    ctx.save();
+    ctx.translate(offsetX, 0);
+    ctx.scale(scale, scale);
+
     // Center dashed line
     ctx.setLineDash([10, 10]);
     ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
@@ -342,15 +328,6 @@ export class PongGame {
 
     // Debug overlay
     if (this.debug) this.drawDebug();
-
-    // Game area boundary line
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.moveTo(0, this.gameHeight);
-    ctx.lineTo(w, this.gameHeight);
-    ctx.stroke();
 
     // Paused overlay
     if (this.paused && !this.gameOver) {
@@ -382,6 +359,21 @@ export class PongGame {
         w / 2,
         this.gameHeight / 2 + 40,
       );
+    }
+
+    // Restore transform back to physical coordinates
+    ctx.restore();
+
+    // Game area boundary line (physical coordinates, only when charts shown)
+    if (this._showCharts) {
+      const boundaryY = h * CHART_HEIGHT_RATIO;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(0, boundaryY);
+      ctx.lineTo(w, boundaryY);
+      ctx.stroke();
     }
   }
 
