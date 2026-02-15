@@ -366,14 +366,16 @@ export class PongGame {
       ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
       ctx.fillRect(0, 0, w, this.gameHeight);
       ctx.fillStyle = "#fff";
-      ctx.font = "bold 40px monospace";
+      ctx.font = "bold 72px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("PAUSED", w / 2, this.gameHeight / 2);
+      ctx.fillText("QUANTUM PONG", w / 2, this.gameHeight / 2 - 40);
+      ctx.font = "bold 32px monospace";
+      ctx.fillText("PAUSED", w / 2, this.gameHeight / 2 + 20);
       ctx.font = "20px monospace";
       ctx.fillText(
         "Press SPACE or ESC to resume",
         w / 2,
-        this.gameHeight / 2 + 40,
+        this.gameHeight / 2 + 60,
       );
     }
 
