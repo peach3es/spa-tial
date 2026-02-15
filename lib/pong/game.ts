@@ -28,6 +28,7 @@ import {
 } from "./obstacle";
 import { HBAR } from "./quantumConstant";
 import { type GameStateStore, type ObstacleChartState } from "./gameState";
+import { GameAudio } from "./audio";
 
 const WINNING_SCORE = 10;
 const CHART_HEIGHT_RATIO = 0.7;
@@ -58,6 +59,7 @@ export class PongGame {
   private obstacles: Obstacle[] = [];
 
   private store: GameStateStore;
+  private audio: GameAudio;
   private frameCount = 0;
   private obstacleHitT: number[] = [0, 0];
   private obstacleHitFrame: number[] = [-Infinity, -Infinity];
@@ -73,10 +75,12 @@ export class PongGame {
     canvas: HTMLCanvasElement,
     ctx: CanvasRenderingContext2D,
     store: GameStateStore,
+    audio: GameAudio,
   ) {
     this.canvas = canvas;
     this.ctx = ctx;
     this.store = store;
+    this.audio = audio;
 
     this.resize();
 
@@ -175,6 +179,7 @@ export class PongGame {
     ball.timeSinceCollapse++;
     if (ball.collapsed && ball.timeSinceCollapse > 3) {
       ball.collapsed = false;
+      this.audio.playSuperposition();
     }
     updateQuantumPosition(ball);
 
@@ -231,6 +236,11 @@ export class PongGame {
           this.obstacleHitFrame[i] = this.frameCount;
           // Record approach direction: prevDx > 0 means ball was moving right (from left)
           this.obstacleHitDirection[i] = prevDx > 0 ? 1 : -1;
+          if (transmitted) {
+            this.audio.playTransmit();
+          } else {
+            this.audio.playReflect();
+          }
         }
       }
     }
@@ -263,6 +273,7 @@ export class PongGame {
 
   private bounceBallOff(paddle: Paddle, directionX: number) {
     this.bounceCount++;
+    this.audio.playCollapse();
 
     this.ball.collapsed = true;
     this.ball.timeSinceCollapse = 0;
