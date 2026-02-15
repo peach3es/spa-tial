@@ -66,14 +66,24 @@ export function generateObstacles(
   ];
 }
 
-export function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle) {
+export function drawObstacle(
+  ctx: CanvasRenderingContext2D,
+  obs: Obstacle,
+  colorOverride?: { r: number; g: number; b: number },
+) {
   const verts = obs.vertices;
-  ctx.fillStyle = obs.transmitted
-    ? "rgba(0, 200, 255, 0.25)"
-    : "rgba(255, 255, 255, 0.25)";
-  ctx.strokeStyle = obs.transmitted
-    ? "rgba(0, 200, 255, 0.6)"
-    : "rgba(255, 255, 255, 0.6)";
+  let r = 255, g = 255, b = 255;
+  if (colorOverride) {
+    r = colorOverride.r;
+    g = colorOverride.g;
+    b = colorOverride.b;
+  } else if (obs.transmitted) {
+    r = 0; g = 200; b = 255;
+  }
+  const fillColor = `rgba(${r}, ${g}, ${b}, 0.25)`;
+  const strokeColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
+  ctx.fillStyle = fillColor;
+  ctx.strokeStyle = strokeColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(verts[0].x, verts[0].y);

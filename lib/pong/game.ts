@@ -31,6 +31,7 @@ import { type GameStateStore, type ObstacleChartState } from "./gameState";
 
 const WINNING_SCORE = 10;
 const CHART_HEIGHT_RATIO = 0.7;
+const COLLISION_LABEL_FRAMES = 60;
 
 export class PongGame {
   private canvas: HTMLCanvasElement;
@@ -316,15 +317,35 @@ export class PongGame {
     ctx.fillText(String(this.p1.score), w / 2 - 60, 60);
     ctx.fillText(String(this.p2.score), w / 2 + 60, 60);
 
-    // Obstacles
-    for (const obs of this.obstacles) {
-      drawObstacle(ctx, obs);
+    // Obstacles (color lerps from blue/red back to white after collision)
+    for (let i = 0; i < this.obstacles.length; i++) {
+      const obs = this.obstacles[i];
+      const framesSince = this.frameCount - this.obstacleHitFrame[i];
+      let colorOverride: { r: number; g: number; b: number } | undefined;
+      if (framesSince < COLLISION_LABEL_FRAMES) {
+        const t = framesSince / COLLISION_LABEL_FRAMES; // 0→1 as it fades
+        const transmitted = this.obstacleHitT[i] > 0.5;
+        // Start color: cyan (0,200,255) for transmit, red (255,80,80) for reflect
+        const sr = transmitted ? 0 : 255;
+        const sg = transmitted ? 200 : 80;
+        const sb = transmitted ? 255 : 80;
+        // Lerp toward white (255, 255, 255)
+        colorOverride = {
+          r: Math.round(sr + (255 - sr) * t),
+          g: Math.round(sg + (255 - sg) * t),
+          b: Math.round(sb + (255 - sb) * t),
+        };
+      }
+      drawObstacle(ctx, obs, colorOverride);
     }
 
     // Paddles & ball
     drawPaddle(ctx, this.p1);
     drawPaddle(ctx, this.p2);
     drawBall(ctx, this.ball);
+
+    // Collision labels (TRANSMITTED / REFLECTED)
+    this.drawCollisionLabels();
 
     // Debug overlay
     if (this.debug) this.drawDebug();
@@ -364,16 +385,16 @@ export class PongGame {
     // Restore transform back to physical coordinates
     ctx.restore();
 
-    // Game area boundary line (physical coordinates, only when charts shown)
+    // Game area border (physical coordinates, only when charts shown)
     if (this._showCharts) {
-      const boundaryY = h * CHART_HEIGHT_RATIO;
+      const scale = CHART_HEIGHT_RATIO;
+      const offsetX = (w * (1 - scale)) / 2;
+      const gameW = w * scale;
+      const gameH = h * scale;
       ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
       ctx.lineWidth = 2;
       ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.moveTo(0, boundaryY);
-      ctx.lineTo(w, boundaryY);
-      ctx.stroke();
+      ctx.strokeRect(offsetX, 0, gameW, gameH);
     }
   }
 
@@ -412,6 +433,31 @@ export class PongGame {
     lines.forEach((line, i) => {
       ctx.fillText(line, 10 + padding, 80 + padding + 14 + i * lineHeight);
     });
+  }
+
+  private drawCollisionLabels() {
+    const ctx = this.ctx;
+    for (let i = 0; i < this.obstacles.length; i++) {
+      const framesSince = this.frameCount - this.obstacleHitFrame[i];
+      if (framesSince >= COLLISION_LABEL_FRAMES) continue;
+
+      const alpha = 1 - framesSince / COLLISION_LABEL_FRAMES;
+      const obs = this.obstacles[i];
+      const n = obs.vertices.length;
+      const cx = obs.vertices.reduce((s, v) => s + v.x, 0) / n;
+      const cy = obs.vertices.reduce((s, v) => s + v.y, 0) / n;
+
+      const transmitted = this.obstacleHitT[i] > 0.5;
+      const label = transmitted ? "TRANSMITTED" : "REFLECTED";
+      const color = transmitted
+        ? `rgba(0, 200, 255, ${alpha})`
+        : `rgba(255, 80, 80, ${alpha})`;
+
+      ctx.fillStyle = color;
+      ctx.font = "bold 16px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(label, cx, cy - 30 - framesSince * 0.3);
+    }
   }
 
   private emitChartState() {
