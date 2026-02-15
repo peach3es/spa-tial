@@ -24,12 +24,19 @@ import {
   drawObstacle,
   collideBallWithObstacles,
 } from "./obstacle";
+import { HBAR } from "./quantumConstant";
+import { type GameStateStore, type ObstacleChartState } from "./gameState";
 
 const WINNING_SCORE = 10;
+const GAME_HEIGHT_RATIO = 0.7;
 
 export class PongGame {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+
+  private get gameHeight() {
+    return this.canvas.height * GAME_HEIGHT_RATIO;
+  }
   private p1: Paddle;
   private p2: Paddle;
   private ball: Ball;
@@ -42,19 +49,34 @@ export class PongGame {
   private bounceCount = 0;
   private obstacles: Obstacle[] = [];
 
-  constructor(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
+  private store: GameStateStore;
+  private frameCount = 0;
+  private obstacleHitT: number[] = [0, 0];
+  private obstacleHitFrame: number[] = [-Infinity, -Infinity];
+
+  private resetObstacleCollisions() {
+    this.obstacleHitT = [0, 0];
+    this.obstacleHitFrame = [-Infinity, -Infinity];
+  }
+
+  constructor(
+    canvas: HTMLCanvasElement,
+    ctx: CanvasRenderingContext2D,
+    store: GameStateStore,
+  ) {
     this.canvas = canvas;
     this.ctx = ctx;
+    this.store = store;
 
     this.resize();
 
-    this.p1 = createPaddle(PADDLE_OFFSET, canvas.height);
+    this.p1 = createPaddle(PADDLE_OFFSET, this.gameHeight);
     this.p2 = createPaddle(
       canvas.width - PADDLE_OFFSET - PADDLE_WIDTH,
-      canvas.height,
+      this.gameHeight,
     );
-    this.ball = createBall(canvas.width, canvas.height);
-    this.obstacles = generateObstacles(canvas.width, canvas.height);
+    this.ball = createBall(canvas.width, this.gameHeight);
+    this.obstacles = generateObstacles(canvas.width, this.gameHeight);
 
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.handleKeyUp = this.handleKeyUp.bind(this);
@@ -106,13 +128,11 @@ export class PongGame {
         resetBall(
           this.ball,
           this.canvas.width,
-          this.canvas.height,
+          this.gameHeight,
           Math.random() > 0.5 ? 1 : -1,
         );
-        this.obstacles = generateObstacles(
-          this.canvas.width,
-          this.canvas.height,
-        );
+        this.obstacles = generateObstacles(this.canvas.width, this.gameHeight);
+        this.resetObstacleCollisions();
       } else {
         this.paused = !this.paused;
       }
@@ -132,8 +152,8 @@ export class PongGame {
     else if (this.keys["ArrowDown"]) this.p2.dy = PADDLE_SPEED;
     else this.p2.dy = 0;
 
-    updatePaddle(this.p1, this.canvas.height);
-    updatePaddle(this.p2, this.canvas.height);
+    updatePaddle(this.p1, this.gameHeight);
+    updatePaddle(this.p2, this.gameHeight);
   }
 
   private updateBall() {
@@ -153,8 +173,8 @@ export class PongGame {
       ball.y = BALL_SIZE / 2;
       ball.dy = Math.abs(ball.dy);
     }
-    if (ball.y + BALL_SIZE / 2 >= this.canvas.height) {
-      ball.y = this.canvas.height - BALL_SIZE / 2;
+    if (ball.y + BALL_SIZE / 2 >= this.gameHeight) {
+      ball.y = this.gameHeight - BALL_SIZE / 2;
       ball.dy = -Math.abs(ball.dy);
     }
 
@@ -180,8 +200,27 @@ export class PongGame {
       this.bounceBallOff(this.p2, -1);
     }
 
-    // Obstacle collision
+    // Obstacle collision — detect which obstacle was hit
+    const prevDx = ball.dx;
+    const prevDy = ball.dy;
     collideBallWithObstacles(ball, this.obstacles);
+    if (ball.dx !== prevDx || ball.dy !== prevDy) {
+      // Find which obstacle the ball is closest to
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      this.obstacles.forEach((obs, i) => {
+        const n = obs.vertices.length;
+        const cx = obs.vertices.reduce((s, v) => s + v.x, 0) / n;
+        const cy = obs.vertices.reduce((s, v) => s + v.y, 0) / n;
+        const d = Math.hypot(ball.x - cx, ball.y - cy);
+        if (d < closestDist) {
+          closestDist = d;
+          closestIdx = i;
+        }
+      });
+      this.obstacleHitT[closestIdx] = this.obstacles[closestIdx].transmission;
+      this.obstacleHitFrame[closestIdx] = this.frameCount;
+    }
 
     // Scoring
     if (ball.x < 0) {
@@ -190,11 +229,9 @@ export class PongGame {
         this.gameOver = true;
         this.winner = "Player 2";
       } else {
-        resetBall(ball, this.canvas.width, this.canvas.height, 1);
-        this.obstacles = generateObstacles(
-          this.canvas.width,
-          this.canvas.height,
-        );
+        resetBall(ball, this.canvas.width, this.gameHeight, 1);
+        this.obstacles = generateObstacles(this.canvas.width, this.gameHeight);
+        this.resetObstacleCollisions();
       }
     }
 
@@ -204,11 +241,9 @@ export class PongGame {
         this.gameOver = true;
         this.winner = "Player 1";
       } else {
-        resetBall(ball, this.canvas.width, this.canvas.height, -1);
-        this.obstacles = generateObstacles(
-          this.canvas.width,
-          this.canvas.height,
-        );
+        resetBall(ball, this.canvas.width, this.gameHeight, -1);
+        this.obstacles = generateObstacles(this.canvas.width, this.gameHeight);
+        this.resetObstacleCollisions();
       }
     }
   }
@@ -251,7 +286,7 @@ export class PongGame {
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(w / 2, 0);
-    ctx.lineTo(w / 2, h);
+    ctx.lineTo(w / 2, this.gameHeight);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -275,28 +310,45 @@ export class PongGame {
     // Debug overlay
     if (this.debug) this.drawDebug();
 
+    // Game area boundary line
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(0, this.gameHeight);
+    ctx.lineTo(w, this.gameHeight);
+    ctx.stroke();
+
     // Paused overlay
     if (this.paused && !this.gameOver) {
       ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillRect(0, 0, w, this.gameHeight);
       ctx.fillStyle = "#fff";
       ctx.font = "bold 40px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("PAUSED", w / 2, h / 2);
+      ctx.fillText("PAUSED", w / 2, this.gameHeight / 2);
       ctx.font = "20px monospace";
-      ctx.fillText("Press SPACE or ESC to resume", w / 2, h / 2 + 40);
+      ctx.fillText(
+        "Press SPACE or ESC to resume",
+        w / 2,
+        this.gameHeight / 2 + 40,
+      );
     }
 
     // Game over overlay
     if (this.gameOver) {
       ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillRect(0, 0, w, this.gameHeight);
       ctx.fillStyle = "#fff";
       ctx.font = "bold 48px monospace";
       ctx.textAlign = "center";
-      ctx.fillText(`${this.winner} Wins!`, w / 2, h / 2);
+      ctx.fillText(`${this.winner} Wins!`, w / 2, this.gameHeight / 2);
       ctx.font = "20px monospace";
-      ctx.fillText("Press SPACE to play again", w / 2, h / 2 + 40);
+      ctx.fillText(
+        "Press SPACE to play again",
+        w / 2,
+        this.gameHeight / 2 + 40,
+      );
     }
   }
 
@@ -316,8 +368,8 @@ export class PongGame {
       ...this.obstacles.flatMap((obs, i) => [
         `--- Obstacle ${i + 1} ---`,
         `  g (strength): ${obs.barrierStrength.toExponential(3)}`,
-        `  T (transmit): ${obs.potentialBarrier.toFixed(6)}`,
-        `  R (reflect):  ${(1 - obs.potentialBarrier).toFixed(6)}`,
+        `  T (transmit): ${obs.transmission.toFixed(6)}`,
+        `  R (reflect):  ${(1 - obs.transmission).toFixed(6)}`,
       ]),
     ];
 
@@ -337,12 +389,48 @@ export class PongGame {
     });
   }
 
+  private emitChartState() {
+    const k = Math.sqrt(2 * this.ball.mass * this.ball.ke) / HBAR;
+    const obstacles = this.obstacles.map((obs, i): ObstacleChartState => {
+      const n = obs.vertices.length;
+      const cx = obs.vertices.reduce((s, v) => s + v.x, 0) / n;
+      const cy = obs.vertices.reduce((s, v) => s + v.y, 0) / n;
+      return {
+        barrierStrength: obs.barrierStrength,
+        transmissionCoeff: obs.transmission,
+        reflectionCoeff: 1 - obs.transmission,
+        obstacleX: cx,
+        obstacleY: cy,
+        ballX: this.ball.x,
+        ballY: this.ball.y,
+        ballDirectionX: this.ball.dx,
+        ballKE: this.ball.ke,
+        ballMass: this.ball.mass,
+        waveNumber: k,
+        collisionT: this.obstacleHitT[i],
+        framesSinceCollision: this.frameCount - this.obstacleHitFrame[i],
+      };
+    });
+    this.store.emit({
+      obstacles: obstacles as [ObstacleChartState, ObstacleChartState],
+      canvasWidth: this.canvas.width,
+      paused: this.paused,
+      gameOver: this.gameOver,
+    });
+  }
+
   private loop() {
     if (!this.paused && !this.gameOver) {
       this.updatePaddles();
       this.updateBall();
     }
     this.draw();
+    if (!this.paused && !this.gameOver) {
+      this.frameCount++;
+    }
+    if (this.frameCount % 2 === 0) {
+      this.emitChartState();
+    }
     this.animationId = requestAnimationFrame(this.loop);
   }
 }
