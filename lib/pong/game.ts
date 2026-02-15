@@ -29,14 +29,23 @@ import { HBAR } from "./quantumConstant";
 import { type GameStateStore, type ObstacleChartState } from "./gameState";
 
 const WINNING_SCORE = 10;
-const GAME_HEIGHT_RATIO = 0.7;
+const CHART_HEIGHT_RATIO = 0.7;
 
 export class PongGame {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private _showCharts = false;
+
+  set showCharts(value: boolean) {
+    if (this._showCharts === value) return;
+    this._showCharts = value;
+    this.onGameHeightChanged();
+  }
 
   private get gameHeight() {
-    return this.canvas.height * GAME_HEIGHT_RATIO;
+    return this._showCharts
+      ? this.canvas.height * CHART_HEIGHT_RATIO
+      : this.canvas.height;
   }
   private p1: Paddle;
   private p2: Paddle;
@@ -107,6 +116,23 @@ export class PongGame {
   private handleResize() {
     this.resize();
     this.p2.x = this.canvas.width - PADDLE_OFFSET - PADDLE_WIDTH;
+  }
+
+  private onGameHeightChanged() {
+    const gh = this.gameHeight;
+    // Clamp paddles into the new game area
+    this.p1.y = Math.min(this.p1.y, gh - PADDLE_HEIGHT);
+    this.p2.y = Math.min(this.p2.y, gh - PADDLE_HEIGHT);
+    // Clamp ball
+    if (this.ball.y > gh - BALL_SIZE / 2) {
+      this.ball.y = gh - BALL_SIZE / 2;
+    }
+    // Clamp obstacle vertices that fall outside the new area
+    for (const obs of this.obstacles) {
+      for (const v of obs.vertices) {
+        if (v.y > gh - 10) v.y = gh - 10;
+      }
+    }
   }
 
   private handleKeyDown(e: KeyboardEvent) {

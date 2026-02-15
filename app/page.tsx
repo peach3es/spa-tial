@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { PongGame } from "@/lib/pong/game";
 import { createGameStateStore } from "@/lib/pong/gameState";
 import { PotentialEnergyPanel } from "@/components/quantum/PotentialEnergyPanel";
@@ -8,6 +8,9 @@ import { PotentialEnergyPanel } from "@/components/quantum/PotentialEnergyPanel"
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const store = useMemo(() => createGameStateStore(), []);
+  const [showCharts, setShowCharts] = useState(false);
+
+  const gameRef = useRef<PongGame | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -17,17 +20,40 @@ export default function Home() {
     if (!ctx) return;
 
     const game = new PongGame(canvas, ctx, store);
+    gameRef.current = game;
     game.start();
 
-    return () => game.stop();
+    return () => {
+      game.stop();
+      gameRef.current = null;
+    };
   }, [store]);
+
+  useEffect(() => {
+    if (gameRef.current) {
+      gameRef.current.showCharts = showCharts;
+    }
+  }, [showCharts]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "g") {
+        e.preventDefault();
+        setShowCharts((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       <canvas ref={canvasRef} className="absolute inset-0 block bg-black" />
-      <div className="absolute bottom-0 left-0 right-0 h-[30vh] z-10">
-        <PotentialEnergyPanel store={store} />
-      </div>
+      {showCharts && (
+        <div className="absolute bottom-0 left-0 right-0 h-[30vh] z-10">
+          <PotentialEnergyPanel store={store} />
+        </div>
+      )}
     </div>
   );
 }
