@@ -201,27 +201,27 @@ export class PongGame {
       this.bounceBallOff(this.p2, -1);
     }
 
-    // Obstacle collision — detect which obstacle was hit
+    // Obstacle collision — detect which obstacle was hit (reflection OR transmission)
+    const prevTransmitted = this.obstacles.map((o) => o.transmitted);
     const prevDx = ball.dx;
     const prevDy = ball.dy;
     collideBallWithObstacles(ball, this.obstacles);
     resetClearedObstacles(ball, this.obstacles);
-    if (ball.dx !== prevDx || ball.dy !== prevDy) {
-      // Find which obstacle the ball is closest to
-      let closestIdx = 0;
-      let closestDist = Infinity;
-      this.obstacles.forEach((obs, i) => {
+    for (let i = 0; i < this.obstacles.length; i++) {
+      const obs = this.obstacles[i];
+      const reflected = ball.dx !== prevDx || ball.dy !== prevDy;
+      const transmitted = !prevTransmitted[i] && obs.transmitted;
+      if (reflected || transmitted) {
         const n = obs.vertices.length;
         const cx = obs.vertices.reduce((s, v) => s + v.x, 0) / n;
         const cy = obs.vertices.reduce((s, v) => s + v.y, 0) / n;
         const d = Math.hypot(ball.x - cx, ball.y - cy);
-        if (d < closestDist) {
-          closestDist = d;
-          closestIdx = i;
+        // Only record for the closest obstacle on reflection
+        if (transmitted || d < 200) {
+          this.obstacleHitT[i] = obs.transmission;
+          this.obstacleHitFrame[i] = this.frameCount;
         }
-      });
-      this.obstacleHitT[closestIdx] = this.obstacles[closestIdx].transmission;
-      this.obstacleHitFrame[closestIdx] = this.frameCount;
+      }
     }
 
     // Scoring

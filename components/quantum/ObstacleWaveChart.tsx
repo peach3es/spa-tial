@@ -65,8 +65,10 @@ export function ObstacleWaveChart({
     if (obstacle.framesSinceCollision < COLLISION_FADE_FRAMES) {
       const fade = 1 - obstacle.framesSinceCollision / COLLISION_FADE_FRAMES;
       if (obstacle.collisionT > 0.5) {
+        // Ball transmitted: wave appears on the right side only
         transmittedAmplitude = Math.sqrt(obstacle.collisionT) * fade;
       } else {
+        // Ball reflected: wave appears on the left side only
         reflectedAmplitude = Math.sqrt(1 - obstacle.collisionT) * fade;
       }
     }
