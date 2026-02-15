@@ -4,8 +4,8 @@ import { HBAR, G_MIN, G_MAX } from "./quantumConstant";
 // An obstacle is a convex polygon defined by its vertices
 export interface Obstacle {
   vertices: { x: number; y: number }[];
-  barrierStrength: number; // g — strength of the delta barrier
-  potentialBarrier: number; // computed on contact: T = transmission coefficient
+  barrierStrength: number; // g - strength of the delta barrier
+  transmission: number; // computed on contact: T = transmission coefficient
   transmitted: boolean; // true if the ball tunneled through this obstacle
 }
 
@@ -41,12 +41,15 @@ function makeThinRect(cx: number, cy: number): Obstacle {
       y: cy + x * sin + y * cos,
     })),
     barrierStrength: randomInRange(G_MIN, G_MAX),
-    potentialBarrier: 0,
+    transmission: 0,
     transmitted: false,
   };
 }
 
-export function generateObstacles(canvasWidth: number, canvasHeight: number): Obstacle[] {
+export function generateObstacles(
+  canvasWidth: number,
+  canvasHeight: number,
+): Obstacle[] {
   const minX = canvasWidth * MARGIN_X_RATIO;
   const midX = canvasWidth / 2;
   const maxX = canvasWidth * (1 - MARGIN_X_RATIO);
@@ -63,10 +66,24 @@ export function generateObstacles(canvasWidth: number, canvasHeight: number): Ob
   ];
 }
 
-export function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle) {
+export function drawObstacle(
+  ctx: CanvasRenderingContext2D,
+  obs: Obstacle,
+  colorOverride?: { r: number; g: number; b: number },
+) {
   const verts = obs.vertices;
-  ctx.fillStyle = obs.transmitted ? "rgba(0, 200, 255, 0.25)" : "rgba(255, 255, 255, 0.25)";
-  ctx.strokeStyle = obs.transmitted ? "rgba(0, 200, 255, 0.6)" : "rgba(255, 255, 255, 0.6)";
+  let r = 255, g = 255, b = 255;
+  if (colorOverride) {
+    r = colorOverride.r;
+    g = colorOverride.g;
+    b = colorOverride.b;
+  } else if (obs.transmitted) {
+    r = 0; g = 200; b = 255;
+  }
+  const fillColor = `rgba(${r}, ${g}, ${b}, 0.25)`;
+  const strokeColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
+  ctx.fillStyle = fillColor;
+  ctx.strokeStyle = strokeColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(verts[0].x, verts[0].y);
@@ -80,27 +97,45 @@ export function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle) {
 
 // Returns the outward normal for an edge, given the polygon center
 function edgeOutwardNormal(
-  ax: number, ay: number, bx: number, by: number,
-  cx: number, cy: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  cx: number,
+  cy: number,
 ): { nx: number; ny: number } {
   let nx = -(by - ay);
   let ny = bx - ax;
   const len = Math.sqrt(nx * nx + ny * ny);
-  if (len > 0) { nx /= len; ny /= len; }
+  if (len > 0) {
+    nx /= len;
+    ny /= len;
+  }
   // Make sure normal points away from polygon center
   const mx = (ax + bx) / 2;
   const my = (ay + by) / 2;
-  if (nx * (mx - cx) + ny * (my - cy) < 0) { nx = -nx; ny = -ny; }
+  if (nx * (mx - cx) + ny * (my - cy) < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
   return { nx, ny };
 }
 
 // Line segment intersection: returns t along first segment, or null
 function segmentIntersectT(
-  p1x: number, p1y: number, p2x: number, p2y: number,
-  p3x: number, p3y: number, p4x: number, p4y: number,
+  p1x: number,
+  p1y: number,
+  p2x: number,
+  p2y: number,
+  p3x: number,
+  p3y: number,
+  p4x: number,
+  p4y: number,
 ): number | null {
-  const d1x = p2x - p1x, d1y = p2y - p1y;
-  const d2x = p4x - p3x, d2y = p4y - p3y;
+  const d1x = p2x - p1x,
+    d1y = p2y - p1y;
+  const d2x = p4x - p3x,
+    d2y = p4y - p3y;
   const denom = d1x * d2y - d1y * d2x;
   if (Math.abs(denom) < 1e-10) return null; // parallel
   const t = ((p3x - p1x) * d2y - (p3y - p1y) * d2x) / denom;
@@ -111,13 +146,21 @@ function segmentIntersectT(
 
 // Closest point on segment for overlap fallback
 function closestPointOnSegment(
-  px: number, py: number,
-  ax: number, ay: number, bx: number, by: number,
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
 ): { x: number; y: number } {
-  const abx = bx - ax, aby = by - ay;
+  const abx = bx - ax,
+    aby = by - ay;
   const len2 = abx * abx + aby * aby;
   if (len2 === 0) return { x: ax, y: ay };
-  const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / len2));
+  const t = Math.max(
+    0,
+    Math.min(1, ((px - ax) * abx + (py - ay) * aby) / len2),
+  );
   return { x: ax + t * abx, y: ay + t * aby };
 }
 
@@ -130,7 +173,26 @@ function computeBarrier(obs: Obstacle, ball: Ball) {
   const E = ball.ke;
   const k = Math.sqrt(2 * m * E) / HBAR;
   const hbar4 = HBAR ** 4;
-  obs.potentialBarrier = 1 / (1 + (m * m * g * g) / (hbar4 * k * k));
+  obs.transmission = 1 / (1 + (m * m * g * g) / (hbar4 * k * k));
+}
+
+// Reset obstacle state once the ball is far enough away
+const CLEAR_DISTANCE = 100; // px from centroid before resetting
+
+export function resetClearedObstacles(ball: Ball, obstacles: Obstacle[]) {
+  for (const obs of obstacles) {
+    if (!obs.transmitted) continue;
+    const verts = obs.vertices;
+    const n = verts.length;
+    let cx = 0, cy = 0;
+    for (const v of verts) { cx += v.x; cy += v.y; }
+    cx /= n; cy /= n;
+    const dist = Math.hypot(ball.x - cx, ball.y - cy);
+    if (dist > CLEAR_DISTANCE) {
+      obs.transmitted = false;
+      obs.transmission = 0;
+    }
+  }
 }
 
 export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
@@ -143,18 +205,33 @@ export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
     const n = verts.length;
 
     // Polygon centroid for determining outward normals
-    let cx = 0, cy = 0;
-    for (const v of verts) { cx += v.x; cy += v.y; }
-    cx /= n; cy /= n;
+    let cx = 0,
+      cy = 0;
+    for (const v of verts) {
+      cx += v.x;
+      cy += v.y;
+    }
+    cx /= n;
+    cy /= n;
 
     // 1) Swept test: did the ball path cross any edge this frame?
     let bestT = Infinity;
-    let hitNx = 0, hitNy = 0;
+    let hitNx = 0,
+      hitNy = 0;
 
     for (let i = 0; i < n; i++) {
       const a = verts[i];
       const b = verts[(i + 1) % n];
-      const t = segmentIntersectT(prevX, prevY, ball.x, ball.y, a.x, a.y, b.x, b.y);
+      const t = segmentIntersectT(
+        prevX,
+        prevY,
+        ball.x,
+        ball.y,
+        a.x,
+        a.y,
+        b.x,
+        b.y,
+      );
       if (t !== null && t < bestT) {
         bestT = t;
         const norm = edgeOutwardNormal(a.x, a.y, b.x, b.y, cx, cy);
@@ -166,7 +243,7 @@ export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
     if (bestT <= 1) {
       // Compute barrier on contact
       computeBarrier(obs, ball);
-      const T = obs.potentialBarrier;
+      const T = obs.transmission;
       const R = 1 - T;
 
       if (T > R) {
@@ -190,7 +267,8 @@ export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
 
     // 2) Overlap fallback: ball didn't cross an edge but is overlapping
     let minDist = Infinity;
-    let bestNx = 0, bestNy = 0;
+    let bestNx = 0,
+      bestNy = 0;
 
     for (let i = 0; i < n; i++) {
       const a = verts[i];
@@ -209,7 +287,7 @@ export function collideBallWithObstacles(ball: Ball, obstacles: Obstacle[]) {
 
     if (minDist < radius) {
       computeBarrier(obs, ball);
-      const T = obs.potentialBarrier;
+      const T = obs.transmission;
       const R = 1 - T;
 
       if (T > R) {
