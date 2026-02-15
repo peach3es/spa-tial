@@ -6,6 +6,7 @@ import {
   resetBall,
   drawBall,
   getSpeed,
+  getWavepacketSigma,
   updateQuantumPosition,
 } from "./ball";
 import {
@@ -419,6 +420,7 @@ export class PongGame {
 
   private emitChartState() {
     const k = Math.sqrt(2 * this.ball.mass * this.ball.ke) / HBAR;
+    const sigma = getWavepacketSigma(this.ball);
     const obstacles = this.obstacles.map((obs, i): ObstacleChartState => {
       const n = obs.vertices.length;
       const cx = obs.vertices.reduce((s, v) => s + v.x, 0) / n;
@@ -435,6 +437,7 @@ export class PongGame {
         ballKE: this.ball.ke,
         ballMass: this.ball.mass,
         waveNumber: k,
+        ballSigma: sigma,
         collisionT: this.obstacleHitT[i],
         framesSinceCollision: this.frameCount - this.obstacleHitFrame[i],
       };

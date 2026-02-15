@@ -20,7 +20,7 @@ export function PotentialEnergyPanel({ store }: Props) {
   }
 
   return (
-    <div className="h-full w-full flex gap-2 p-2 bg-black/90">
+    <div className="h-full w-full flex gap-1.5 p-1.5">
       {state.obstacles.map((obs, i) => (
         <ObstacleWaveChart
           key={i}

@@ -10,6 +10,7 @@ export interface ObstacleChartState {
   ballKE: number;
   ballMass: number;
   waveNumber: number;
+  ballSigma: number;
   collisionT: number;
   framesSinceCollision: number;
 }
@@ -36,6 +37,7 @@ function defaultObstacleState(): ObstacleChartState {
     ballKE: 0,
     ballMass: 0,
     waveNumber: 0,
+    ballSigma: 0,
     collisionT: 0,
     framesSinceCollision: Infinity,
   };
