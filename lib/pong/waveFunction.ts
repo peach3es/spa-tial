@@ -7,7 +7,6 @@ export interface WaveDataPoint {
 }
 
 const PACKET_SIGMA = 30; // width of Gaussian wave packet
-const SPIKE_WIDTH = 1.5;
 
 export function generateWaveData(
   displayK: number,
@@ -53,9 +52,9 @@ export function generateWaveData(
   for (let i = 0; i <= numPoints; i++) {
     const x = -xRange + (2 * xRange * i) / numPoints;
 
-    // Delta function spike at x = 0
-    const potential =
-      spikeHeight * Math.exp(-(x * x) / (2 * SPIKE_WIDTH * SPIKE_WIDTH));
+    // Delta function spike at x = 0: nonzero only at the single closest point
+    const step = (2 * xRange) / numPoints;
+    const potential = Math.abs(x) < step / 2 ? spikeHeight : 0;
 
     let psiReal = 0;
 
